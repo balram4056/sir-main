@@ -282,7 +282,7 @@ def main():
         st.sidebar.success(f"Loaded • {trained_at}")
     else:
         st.sidebar.info("Loaded model")
-    tabs = st.tabs(["Overview", "Test Message", "Lexicon", "Analytics", "Batch", "About"])
+    tabs = st.tabs(["Overview", "Test Message", "Lexicon", "Analytics", "About"])
     with tabs[0]:
         c1, c2, c3 = st.columns(3)
         c1.metric("Accuracy", f"{metrics['accuracy']:.4f}")
@@ -352,17 +352,7 @@ def main():
         if "explicit_override_enabled" not in st.session_state:
             st.session_state["explicit_override_enabled"] = True
         st.write(f"Total words: {len(get_lexicon())}")
-        add_text = st.text_area("Add words (comma or newline separated)")
-        c1, c2 = st.columns(2)
-        if c1.button("Add Words"):
-            new_items = []
-            for part in re.split(r"[,\n]", add_text):
-                w = part.strip().lower()
-                if w:
-                    new_items.append(w)
-            st.session_state["custom_words"] = list(sorted(set(st.session_state["custom_words"]).union(new_items)))
-            st.success(f"Added {len(new_items)} word(s).")
-        if c2.button("Clear Custom Words"):
+        if st.button("Clear Custom Words"):
             st.session_state["custom_words"] = []
             st.success("Cleared custom words.")
         if st.session_state["custom_words"]:
@@ -411,41 +401,7 @@ def main():
         if cm is None and report is None:
             st.info("Analytics will be available after next training.")
     with tabs[4]:
-        st.subheader("Batch Prediction")
-        uploaded = st.file_uploader("Upload CSV with 'text' column", type=["csv"])
-        if uploaded is not None:
-            try:
-                dfu = pd.read_csv(uploaded)
-            except Exception:
-                try:
-                    dfu = pd.read_csv(uploaded, encoding="latin-1")
-                except Exception as e:
-                    st.error(f"Could not read CSV: {e}")
-                    dfu = None
-            if 'text' not in dfu.columns:
-                st.error("CSV must contain a 'text' column.")
-            else:
-                override_flags = dfu['text'].astype(str).apply(is_explicit_abuse)
-                dfu['clean_text'] = dfu['text'].apply(preprocess_text)
-                dfu = add_features(dfu, 'clean_text')
-                X_tfidf_u = tfidf_vectorizer.transform(dfu['clean_text'])
-                num_u = dfu[['sentiment', 'text_length']].fillna(0)
-                X_num_u = scaler.transform(num_u)
-                X_u = hstack([X_tfidf_u, csr_matrix(X_num_u)])
-                preds_u = []
-                for name, model in best_models.items():
-                    preds_u.append(model.predict(X_u) * weights[name])
-                final_u = np.round(np.sum(preds_u, axis=0)).astype(int)
-                final_u[override_flags.values] = 1
-                dfu['prediction'] = np.where(final_u == 1, "Cyberbullying", "Not Cyberbullying")
-                st.write("Preview")
-                st.dataframe(dfu[['text', 'prediction']].head(50))
-                if 'label' in dfu.columns:
-                    y_true_u = dfu['label']
-                    y_pred_u = np.where(final_u == 1, 1, 0)
-                    cm_u = confusion_matrix(y_true_u, y_pred_u)
-                    st.write("Confusion Matrix (Uploaded)")
-                    st.dataframe(pd.DataFrame(cm_u, columns=["Pred 0", "Pred 1"], index=["True 0", "True 1"]))
+        st.markdown("This tool helps classify messages for cyberbullying risk and provides basic analytics.")
     with tabs[4]:
         st.markdown("This tool helps classify messages for cyberbullying risk and provides basic analytics.")
 
