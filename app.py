@@ -49,8 +49,14 @@ def add_features(df, text_column):
 
 def check_bag_of_words(text):
     tokens = set(word_tokenize(text.lower()))
-    matched_words = tokens.intersection(cyberbully_words)
+    lex = get_lexicon()
+    matched_words = tokens.intersection(lex)
     return matched_words
+
+def get_lexicon():
+    base = cyberbully_words
+    custom = set(st.session_state.get("custom_words", []))
+    return base.union(custom)
 
 def is_explicit_abuse(text):
     t = text.lower()
@@ -202,7 +208,7 @@ def main():
         st.sidebar.success(f"Loaded • {trained_at}")
     else:
         st.sidebar.info("Loaded model")
-    tabs = st.tabs(["Overview", "Test Message", "Analytics", "Batch", "About"])
+    tabs = st.tabs(["Overview", "Test Message", "Lexicon", "Analytics", "Batch", "About"])
     with tabs[0]:
         c1, c2, c3 = st.columns(3)
         c1.metric("Accuracy", f"{metrics['accuracy']:.4f}")
@@ -256,19 +262,52 @@ def main():
             st.subheader("Recent Checks")
             st.dataframe(pd.DataFrame(st.session_state["history"][-10:]))
     with tabs[2]:
+        st.subheader("Lexicon")
+        if "custom_words" not in st.session_state:
+            st.session_state["custom_words"] = []
+        st.write(f"Total words: {len(get_lexicon())}")
+        add_text = st.text_area("Add words (comma or newline separated)")
+        c1, c2 = st.columns(2)
+        if c1.button("Add Words"):
+            new_items = []
+            for part in re.split(r"[,\n]", add_text):
+                w = part.strip().lower()
+                if w:
+                    new_items.append(w)
+            st.session_state["custom_words"] = list(sorted(set(st.session_state["custom_words"]).union(new_items)))
+            st.success(f"Added {len(new_items)} word(s).")
+        if c2.button("Clear Custom Words"):
+            st.session_state["custom_words"] = []
+            st.success("Cleared custom words.")
+        if st.session_state["custom_words"]:
+            st.write("Custom words")
+            st.dataframe(pd.DataFrame({"word": st.session_state["custom_words"]}))
+    with tabs[3]:
         st.subheader("Analytics")
         cm = artifacts.get('confusion_matrix', None)
         report = artifacts.get('classification_report', None)
         if cm is not None:
             st.write("Confusion Matrix")
             st.dataframe(pd.DataFrame(cm, columns=["Pred 0", "Pred 1"], index=["True 0", "True 1"]))
+            tn, fp, fn, tp = cm.ravel()
+            st.write(f"TP: {tp}, TN: {tn}, FP: {fp}, FN: {fn}")
+            total = tp + tn + fp + fn
+            acc_v = (tp + tn) / total if total else 0
+            prec_v = tp / (tp + fp) if (tp + fp) else 0
+            rec_v = tp / (tp + fn) if (tp + fn) else 0
+            f1_v = 2 * prec_v * rec_v / (prec_v + rec_v) if (prec_v + rec_v) else 0
+            c1, c2, c3, c4 = st.columns(4)
+            c1.metric("Accuracy", f"{acc_v:.4f}")
+            c2.metric("Precision", f"{prec_v:.4f}")
+            c3.metric("Recall", f"{rec_v:.4f}")
+            c4.metric("F1 Score", f"{f1_v:.4f}")
         if report is not None:
             st.write("Classification Report")
             rep_df = pd.DataFrame(report).transpose()
             st.dataframe(rep_df)
         if cm is None and report is None:
             st.info("Analytics will be available after next training.")
-    with tabs[3]:
+    with tabs[4]:
         st.subheader("Batch Prediction")
         uploaded = st.file_uploader("Upload CSV with 'text' column", type=["csv"])
         if uploaded is not None:
