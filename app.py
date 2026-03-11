@@ -230,16 +230,7 @@ def main():
     st.title("🛡️ Hybrid Supervised Cyber-bully Detection System")
 
     st.sidebar.header("Model")
-    uploaded_model = st.sidebar.file_uploader("Upload pre-trained model (.pkl)", type=["pkl"])
-    if uploaded_model is not None:
-        try:
-            data_bytes = uploaded_model.read()
-            with open("cyberbullying_model.pkl", "wb") as f:
-                f.write(data_bytes)
-            st.sidebar.success("Model uploaded and saved.")
-            st.rerun()
-        except Exception as e:
-            st.sidebar.error(f"Upload failed: {e}")
+    
     retrain_clicked = st.sidebar.button("Retrain Model")
     if retrain_clicked:
         try:
